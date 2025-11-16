@@ -1,5 +1,5 @@
-create-sandbox:
-	bash ./sandbox/create-sandbox.sh
+test:
+	bash ./sandbox/create-sandbox.sh && bash ./pre-commit-obsidian.sh --test
 
-clean-sandbox:
+clean:
 	bash ./sandbox/clean.sh
