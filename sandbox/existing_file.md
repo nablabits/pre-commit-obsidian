@@ -20,3 +20,5 @@ aliases:
 This file is an existing file to test the `created_at`, when running the script,
 its date should be updated to the date it appears in the first commit
 (2025-11-16). Its `updated_at` should be updated to the current date.
+
+Then, I added some other content so as to have a commit on a different date.
