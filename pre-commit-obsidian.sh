@@ -1,11 +1,11 @@
 #!/bin/bash
 
-obsidian_dir= # add here your obsidian directory's absolute path.
+OBSIDIAN_DIR= # add here your obsidian directory's absolute path.
 
 # TODO: put conditional logic on the debug variable to print more info.
-debug=false
+DEBUG=false
+CHECK_DOMAIN=true
 
-today=$(date +%Y-%m-%d)
 
 add_frontmatter() {
     local file="$1"
@@ -28,6 +28,7 @@ add_frontmatter() {
 update_frontmatter_fields() {
     local file="$1"
     local temp_file=$(mktemp)
+    local today=$(date +%Y-%m-%d)
     
     # Calculate the new values
     local first_commit=$(git log --follow --format="%as" -- "$file" | tail -n 1)
@@ -54,17 +55,29 @@ update_frontmatter_fields() {
     return 0
 }
 
+check_domain () {
+    local file="$1"
+    local domain=$(grep -E "^domain:.+$" "$file")
+    if [[ $CHECK_DOMAIN == true && -z "$domain" ]]; then
+        echo "No domain found in file: $file"
+        return 1
+    fi
+    return 0
+}
+
 # Function to process all markdown files
 process_markdown_files() {
-    if [[ -z "$obsidian_dir" ]]; then
+    if [[ -z "$OBSIDIAN_DIR" ]]; then
         echo "Error: obsidian_dir is not set. Please configure your Obsidian directory path."
         exit 1
     fi
     
-    if [[ ! -d "$obsidian_dir" ]]; then
+    if [[ ! -d "$OBSIDIAN_DIR" ]]; then
         echo "Error: Directory $obsidian_dir does not exist."
         exit 1
     fi
+
+    local result=0
     
     echo "Processing markdown files in: $obsidian_dir"
     echo "----------------------------------------"
@@ -79,19 +92,24 @@ process_markdown_files() {
             add_frontmatter "$file"
         fi
         update_frontmatter_fields "$file"
+        check_domain "$file"
+        if [[ $? -ne 0 ]]; then
+            result=1
+        fi
     done
-    
+
     echo "----------------------------------------"
-    echo "Timestamp check completed!"
+    echo "Timestamp check completed! $result"
+    return $result
 }
 
 if [ "$1" = "--test" ]; then
-    obsidian_dir="./sandbox"
-    debug=true
+    OBSIDIAN_DIR="./sandbox"
+    DEBUG=true
     echo "Running in test mode..."
-    echo "obsidian_dir: $obsidian_dir"
+    echo "OBSIDIAN_DIR: $OBSIDIAN_DIR"
 fi 
 
 process_markdown_files
 
-exit 0
+exit $?
