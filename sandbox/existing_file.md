@@ -9,6 +9,7 @@ tags:
   - tag2
 main_link: 
 revisions: 1
+revisits: 1
 status: express
 version: "3.5"
 aliases:
@@ -22,3 +23,6 @@ its date should be updated to the date it appears in the first commit
 (2025-11-16). Its `updated_at` should be updated to the current date.
 
 Then, I added some other content so as to have a commit on a different date.
+
+The script should remove `revisits` and add `revisions: 4`.
+
