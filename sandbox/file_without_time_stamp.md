@@ -1,4 +1,5 @@
 ---
+domain:
 some_property: some_value
 ---
 
@@ -6,3 +7,5 @@ some_property: some_value
 
 This file does have frontmatter, but it does not have timestamps, so the script
 should show a warning but do nothing else.
+
+The script should complain because `domain` is empty.
