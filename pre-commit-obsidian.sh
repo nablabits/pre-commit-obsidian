@@ -14,44 +14,45 @@ add_frontmatter() {
             echo "---"
             echo "created_at:"
             echo "updated_at:"
+            echo "revisions:"
             echo "---"
             echo ""
             cat "$file"
         } > "$temp_file"
         mv "$temp_file" "$file"
-        echo "Added frontmatter with timestamps"
         return 0
 }
 
 
-# Function to check and update timestamps in frontmatter
-check_timestamps() {
+# Function to update frontmatter fields by removing and re-adding them
+update_frontmatter_fields() {
     local file="$1"
-    # if created at or updated_at do not exist, we raise a warning but allow
-    # to continue. I will hardly find myself without these folks missing, so
-    # it does not make sense to me for the time being to automate this edge
-    # case.
-    local has_created_at=$(grep -q "^created_at:" "$file")
-    local has_updated_at=$(grep -q "^updated_at:" "$file")
-    if ! $has_created_at || ! $has_updated_at; then
-        echo "Warning: created_at or updated_at not found in file: $file"
-    fi
-
-    # replace created_at with the date of the first commit, or today's date if 
-    # no history
+    local temp_file=$(mktemp)
+    
+    # Calculate the new values
     local first_commit=$(git log --follow --format="%as" -- "$file" | tail -n 1)
     if [[ -z "$first_commit" ]]; then
         first_commit="$today"
         echo "No git history found, using today's date for created_at"
     fi
-    sed -Ei "s/^created_at:.+?$/created_at: $first_commit/" "$file"
-
-    # replace updated_at with the current date.
-    sed -Ei "s/^updated_at:.+?$/updated_at: $today/" "$file"
     
+    local revisions=$(($(git log --follow --oneline -- "$file" | wc -l) + 1))
+    
+    # Remove the first --- delimiter and our target fields
+    sed -E -e '1{/^---$/d}' -e '/^(created_at|updated_at|revisions|revisits):/d' "$file" > "$temp_file"
+    
+    # Prepend our fields with the opening delimiter
+    {
+        echo "---"
+        echo "created_at: $first_commit"
+        echo "updated_at: $today"
+        echo "revisions: $revisions"
+        cat "$temp_file"
+    } > "$file"
+    
+    rm -f "$temp_file"
     return 0
 }
-
 
 # Function to process all markdown files
 process_markdown_files() {
@@ -77,7 +78,7 @@ process_markdown_files() {
             echo "No frontmatter found in file: $file"
             add_frontmatter "$file"
         fi
-        check_timestamps "$file"
+        update_frontmatter_fields "$file"
     done
     
     echo "----------------------------------------"
