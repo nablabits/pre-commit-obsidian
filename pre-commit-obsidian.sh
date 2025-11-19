@@ -1,10 +1,11 @@
 #!/bin/bash
 
 OBSIDIAN_DIR= # add here your obsidian directory's absolute path.
+CHECK_DOMAIN=true
+STATUSES=("capture" "distill" "express")
 
 # TODO: put conditional logic on the debug variable to print more info.
 DEBUG=false
-CHECK_DOMAIN=true
 
 
 add_frontmatter() {
@@ -59,9 +60,29 @@ check_domain () {
     local file="$1"
     local domain=$(grep -E "^domain:.+$" "$file")
     if [[ $CHECK_DOMAIN == true && -z "$domain" ]]; then
-        echo "No domain found in file: $file"
+        echo "ERROR: No domain found in file: $file"
         return 1
     fi
+    return 0
+}
+
+check_status () {
+    local file="$1"
+    
+    # If STATUSES array is empty, return 0. In principle I will mostly have a
+    # statuses, but I imagine people not using them, so having the array empty
+    # is a proxy for "don't check status".
+    if [[ ${#STATUSES[@]} -eq 0 ]]; then
+        return 0
+    fi
+    
+    # If grep on status (both field and value) is empty, return 1
+    local full_status=$(grep -E "^status:.+$" "$file")
+    if [[ -z "$full_status" ]]; then
+        echo "ERROR: No status found in file: $file"
+        return 1
+    fi
+    
     return 0
 }
 
@@ -77,14 +98,12 @@ process_markdown_files() {
         exit 1
     fi
 
-    local result=0
     
-    echo "Processing markdown files in: $obsidian_dir"
+    echo "Processing markdown files in: $OBSIDIAN_DIR"
     echo "----------------------------------------"
     
-    # Get staged .md files only (for pre-commit)
-    md_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$')
-    for file in $md_files; do      
+    local result=0
+    while IFS= read -r file; do      
         echo "Processing file: $file"
         # if we don't have frontmatter we add one.
         if ! grep -q "^---$" "$file"; then
@@ -96,7 +115,11 @@ process_markdown_files() {
         if [[ $? -ne 0 ]]; then
             result=1
         fi
-    done
+        check_status "$file"
+        if [[ $? -ne 0 ]]; then
+            result=1
+        fi
+    done < <(git diff --cached --name-only --diff-filter=ACM | grep '\.md$')
 
     echo "----------------------------------------"
     echo "Timestamp check completed! $result"
