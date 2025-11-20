@@ -14,8 +14,15 @@ STATUSES=("capture" "distill" "express")
 # https://git-scm.com/docs/git-log#Documentation/git-log.txt---find-renamesn
 RENAME_SENSITIVITY="80"
 
-# TODO: put conditional logic on the debug variable to print more info.
 DEBUG=false
+
+# Debug helper function - outputs to stderr with [DEBUG] prefix
+debug_print() {
+    if [[ "$DEBUG" == true ]]; then
+        echo "[DEBUG] $*" >&2
+    fi
+}
+
 
 
 add_frontmatter() {
@@ -34,8 +41,6 @@ add_frontmatter() {
         return 0
 }
 
-
-# Function to update frontmatter fields by removing and re-adding them
 update_frontmatter_fields() {
     local file="$1"
     local temp_file=$(mktemp)
@@ -43,12 +48,14 @@ update_frontmatter_fields() {
     
     # Calculate the new values
     local first_commit=$(git log --follow --find-renames="$RENAME_SENSITIVITY" --format="%as" -- "$file" | tail -n 1)
+    debug_print "First commit: $first_commit"
     if [[ -z "$first_commit" ]]; then
         first_commit="$today"
-        echo "No git history found, using today's date for created_at"
+        echo "[WARNING] No git history found, using today's date for created_at"
     fi
     
     local revisions=$(($(git log --follow --find-renames="$RENAME_SENSITIVITY" --oneline -- "$file" | wc -l) + 1))
+    debug_print "Revisions: $revisions"
     
     # Remove the first --- delimiter and our target fields
     sed -E -e '1{/^---$/d}' -e '/^(created_at|updated_at|revisions|revisits):/d' "$file" > "$temp_file"
@@ -69,8 +76,9 @@ update_frontmatter_fields() {
 check_domain () {
     local file="$1"
     local domain=$(grep -E "^domain:.+$" "$file")
+    debug_print "Domain: $domain"
     if [[ $CHECK_DOMAIN == true && -z "$domain" ]]; then
-        echo "ERROR: No domain found in file: $file"
+        echo "[ERROR] No domain found in file: $file"
         return 1
     fi
     return 0
@@ -83,27 +91,33 @@ check_status () {
     # statuses, but I imagine people not using them, so having the array empty
     # is a proxy for "don't check status".
     if [[ ${#STATUSES[@]} -eq 0 ]]; then
+        debug_print "Statuses not defined"
         return 0
     fi
     
     # If grep on status (both field and value) is empty, return 1
     local full_status=$(grep -E "^status:.+$" "$file")
+    debug_print "Status: $full_status"
     if [[ -z "$full_status" ]]; then
-        echo "ERROR: No status found in file: $file"
+        echo "[ERROR] No status found in file: $file"
         return 1
     fi
+
+    # TODO: at some point I might want to do a check on whether the status in
+    # the file matches the STATUSES array, but not for now.
     
     return 0
 }
 
 # Function to process all markdown files
 process_markdown_files() {
+    debug_print "Processing markdown files..."
     local result=0
     while IFS= read -r file; do      
-        echo "Processing file: $file"
+        debug_print "Processing file: $file"
         # if we don't have frontmatter we add one.
         if ! grep -q "^---$" "$file"; then
-            echo "No frontmatter found in file: $file"
+            debug_print "Adding frontmatter to file: $file"
             add_frontmatter "$file"
         fi
         update_frontmatter_fields "$file"
@@ -117,15 +131,13 @@ process_markdown_files() {
         fi
     done < <(git diff --cached --name-only --diff-filter=ACM | grep '\.md$')
 
-    echo "----------------------------------------"
-    echo "Timestamp check completed! $result"
+    echo "Pre-commit check completed!"
     return $result
 }
 
 if [ "$1" = "--test" ]; then
-    OBSIDIAN_DIR="./sandbox"
     DEBUG=true
-    echo "Running in test mode..."
+    debug_print "Running in test mode..."
 fi 
 
 process_markdown_files
