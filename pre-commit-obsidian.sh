@@ -1,8 +1,18 @@
 #!/bin/bash
 
-OBSIDIAN_DIR= # add here your obsidian directory's absolute path.
 CHECK_DOMAIN=true
 STATUSES=("capture" "distill" "express")
+
+# To establish when the file was created and the number of revisions, we
+# use git log with the --follow flag to traverse renames of the files. This has
+# some trade off as, if one note is created off a template and not changed
+# substantially, it will be considered a revision. To mitigate what counts as
+# a rename we use this value for the flag --find-renames. In my experience,
+# 60 started to work well, but I'd like to make it more restrictive and trade
+# revisions for accuracy.
+# See:
+# https://git-scm.com/docs/git-log#Documentation/git-log.txt---find-renamesn
+RENAME_SENSITIVITY="80"
 
 # TODO: put conditional logic on the debug variable to print more info.
 DEBUG=false
@@ -32,13 +42,13 @@ update_frontmatter_fields() {
     local today=$(date +%Y-%m-%d)
     
     # Calculate the new values
-    local first_commit=$(git log --follow --format="%as" -- "$file" | tail -n 1)
+    local first_commit=$(git log --follow --find-renames="$RENAME_SENSITIVITY" --format="%as" -- "$file" | tail -n 1)
     if [[ -z "$first_commit" ]]; then
         first_commit="$today"
         echo "No git history found, using today's date for created_at"
     fi
     
-    local revisions=$(($(git log --follow --oneline -- "$file" | wc -l) + 1))
+    local revisions=$(($(git log --follow --find-renames="$RENAME_SENSITIVITY" --oneline -- "$file" | wc -l) + 1))
     
     # Remove the first --- delimiter and our target fields
     sed -E -e '1{/^---$/d}' -e '/^(created_at|updated_at|revisions|revisits):/d' "$file" > "$temp_file"
@@ -88,20 +98,6 @@ check_status () {
 
 # Function to process all markdown files
 process_markdown_files() {
-    if [[ -z "$OBSIDIAN_DIR" ]]; then
-        echo "Error: obsidian_dir is not set. Please configure your Obsidian directory path."
-        exit 1
-    fi
-    
-    if [[ ! -d "$OBSIDIAN_DIR" ]]; then
-        echo "Error: Directory $obsidian_dir does not exist."
-        exit 1
-    fi
-
-    
-    echo "Processing markdown files in: $OBSIDIAN_DIR"
-    echo "----------------------------------------"
-    
     local result=0
     while IFS= read -r file; do      
         echo "Processing file: $file"
@@ -130,7 +126,6 @@ if [ "$1" = "--test" ]; then
     OBSIDIAN_DIR="./sandbox"
     DEBUG=true
     echo "Running in test mode..."
-    echo "OBSIDIAN_DIR: $OBSIDIAN_DIR"
 fi 
 
 process_markdown_files
