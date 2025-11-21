@@ -132,6 +132,13 @@ process_markdown_files() {
     done < <(git diff --cached --name-only --diff-filter=ACM | grep '\.md$')
 
     echo "Pre-commit check completed!"
+
+    # Check if there are unstaged changes to prevent the commit.
+    if ! git diff --quiet; then
+        echo "[ERROR] Unstaged changes detected"
+        return 1
+    fi
+
     return $result
 }
 
