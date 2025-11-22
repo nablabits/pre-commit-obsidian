@@ -37,6 +37,12 @@ Make sure to make it executable:
 chmod +x .git/hooks/pre-commit
 ```
 
+Of course, you can always bypass the checks:
+
+```bash
+git commit --no-verify -m "your commit message"
+```
+
 ## How to Test It
 
 I have created a few files that will serve as a quick test, you can run them
