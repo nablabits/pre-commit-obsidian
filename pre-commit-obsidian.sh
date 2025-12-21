@@ -11,7 +11,7 @@ STATUSES=("capture" "distill" "express")
 # 60 started to work well, but I'd like to make it more restrictive and trade
 # revisions for accuracy.
 # See:
-# https://git-scm.com/docs/git-log#Documentation/git-log.txt---find-renamesn
+# https://git-scm.com/docs/git-log#Documentation/git-log.txt---find-renames
 RENAME_SENSITIVITY="80"
 
 DEBUG=false
@@ -23,6 +23,21 @@ debug_print() {
     fi
 }
 
+# Helper function to run git log with common flags
+git_log_with_rename_tracking() {
+    local file="$1"
+    shift
+    
+    # Check if no_follow is set to true in the file's frontmatter
+    local git_follow=$(grep -E "^no_follow:\strue$" "$file")
+    
+    if [[ -n "$git_follow" ]]; then
+        debug_print "no_follow enabled for $file, skipping --follow and --find-renames"
+        git log "$@" -- "$file"
+    else
+        git log --follow --find-renames="$RENAME_SENSITIVITY" "$@" -- "$file"
+    fi
+}
 
 
 add_frontmatter() {
@@ -47,14 +62,14 @@ update_frontmatter_fields() {
     local today=$(date +%Y-%m-%d)
     
     # Calculate the new values
-    local first_commit=$(git log --follow --find-renames="$RENAME_SENSITIVITY" --format="%as" -- "$file" | tail -n 1)
+    local first_commit=$(git_log_with_rename_tracking "$file" --format="%as" | tail -n 1)
     debug_print "First commit: $first_commit"
     if [[ -z "$first_commit" ]]; then
         first_commit="$today"
         echo "[WARNING] No git history found, using today's date for created_at"
     fi
     
-    local revisions=$(($(git log --follow --find-renames="$RENAME_SENSITIVITY" --oneline -- "$file" | wc -l) + 1))
+    local revisions=$(($(git_log_with_rename_tracking "$file" --oneline | wc -l) + 1))
     debug_print "Revisions: $revisions"
     
     # Remove the first --- delimiter and our target fields

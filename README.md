@@ -10,6 +10,10 @@ Design a pre-commit script that will normalise md files mainly for Obsidian.
   automatically depending on the git history of the file. There are some trade
   offs around this which depend on some threshold, check `RENAME_SENSITIVITY`
   in the script.
+- At some point I realised that sometimes one is better off not using the `--follow` flag in git,
+  for example, if you start files using a template as that will pick the date of when the template
+  was created. So if your file contains a `no_follow` property in the frontmatter, it will skip the
+  `--follow` flag check and will default to the first commit of the current name of the file.
 - If the flag `CHECK_DOMAIN` is set to true, it will check that the `domain`
   field is defined in the file.
 - If the array `STATUSES` is not empty, it will check that the `status` field

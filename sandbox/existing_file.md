@@ -12,6 +12,7 @@ revisions: 1
 revisits: 1
 status: express
 version: "3.5"
+no_follow: true
 aliases:
   - test_created_at
 ---
